@@ -117,11 +117,14 @@ export function off(el, event, fn) {
 /**
  * get touch event and current event
  * @param {Event|TouchEvent} evt
+ * @param {number|null} lockedX
+ * @param {number|null} lockedY
  */
-export function getEvent(evt) {
+export function getEvent(evt, lockedX, lockedY) {
   let event = evt;
   let touch = (evt.touches && evt.touches[0]) || (evt.changedTouches && evt.changedTouches[0]);
   let target = touch ? document.elementFromPoint(touch.clientX, touch.clientY) : evt.target;
+
   if (touch && !('clientX' in event)) {
     event.clientX = touch.clientX;
     event.clientY = touch.clientY;
@@ -129,6 +132,12 @@ export function getEvent(evt) {
     event.pageY = touch.pageY;
     event.screenX = touch.screenX;
     event.screenY = touch.screenY;
+  }
+  if (lockedX) {
+    target = document.elementFromPoint(lockedX, event.clientY);
+  }
+  if (lockedY) {
+    target = document.elementFromPoint(event.clientX, lockedY);
   }
   return { touch, event, target };
 }

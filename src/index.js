@@ -1,25 +1,27 @@
 import {
-  on,
-  off,
-  css,
-  events,
-  visible,
-  expando,
-  matches,
-  closest,
-  getRect,
-  getEvent,
-  containes,
-  lastChild,
-  getOffset,
   _nextTick,
-  toggleClass,
-  isHTMLElement,
-  offsetChanged,
-  sortableChanged,
+  closest,
+  containes,
+  css,
+  Edge,
+  events,
+  expando,
+  getEvent,
+  getOffset,
   getParentAutoScrollElement,
+  getRect,
+  IE11OrLess,
+  isHTMLElement,
+  lastChild,
+  matches,
+  off,
+  offsetChanged,
+  on,
+  Safari,
+  sortableChanged,
+  toggleClass,
+  visible,
 } from './utils.js';
-import { Edge, Safari, IE11OrLess } from './utils.js';
 import Multiple, { getMultiDiffer } from './Plugins/Multiple.js';
 import AutoScroll from './Plugins/AutoScroll.js';
 import Animation from './Plugins/Animation.js';
@@ -51,6 +53,8 @@ let from = { ...FromTo };
 let to = { ...FromTo };
 
 let lastPosition = { x: 0, y: 0 };
+
+let initialDragPosition = { x: null, y: null };
 
 const _prepareGroup = function (options) {
   let group = {};
@@ -169,6 +173,9 @@ function Sortable(el, options) {
 
     supportTouch: 'ontouchstart' in window,
     emptyInsertThreshold: 5,
+
+    // x or y
+    lockAxis: null,
   };
 
   // Set default options
@@ -267,6 +274,9 @@ Sortable.prototype = {
 
     // No dragging is allowed when there is no dragging element
     if (!dragEl || dragEl.animated) return;
+
+    initialDragPosition.x = event.clientX;
+    initialDragPosition.y = event.clientY;
 
     cloneEl = dragEl.cloneNode(true);
     this._prepareStart(touch, event);
@@ -388,13 +398,26 @@ Sortable.prototype = {
     this._preventEvent(evt);
     if (!downEvent || !dragEl || !_positionChanged(evt)) return;
 
-    const { event, target } = getEvent(evt);
-    const nearest = _detectNearestSortable(event.clientX, event.clientY);
+    const isXAxisLocked = this.options.lockAxis === 'x';
+    const initialYPosition = isXAxisLocked ? initialDragPosition.y : null;
+
+    const isYAxisLocked = this.options.lockAxis === 'y';
+    const initialXPosition = isYAxisLocked ? initialDragPosition.x : null;
+
+    let { event, target } = getEvent(evt, initialXPosition, initialYPosition);
+
+    const yMoveCoord = isXAxisLocked ? initialYPosition : event.clientY;
+    const yDropCoord = isXAxisLocked ? initialYPosition : downEvent.clientY;
+
+    const xMoveCoord = isYAxisLocked ? initialXPosition : event.clientX;
+    const xDropCoord = isYAxisLocked ? initialXPosition : downEvent.clientX;
+
+    const nearest = _detectNearestSortable(xMoveCoord, yMoveCoord);
 
     this._onTrulyStarted();
     moveEvent = event;
 
-    helper.move(event.clientX - downEvent.clientX, event.clientY - downEvent.clientY);
+    helper.move(xMoveCoord - xDropCoord, yMoveCoord - yDropCoord);
     this._autoScroll(target);
 
     if (nearest) {
