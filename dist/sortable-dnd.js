@@ -10,35 +10,35 @@
   (global = global || self, global.Sortable = factory());
 }(this, (function () { 'use strict';
 
-  function ownKeys(object, enumerableOnly) {
-    var keys = Object.keys(object);
+  function ownKeys(e, r) {
+    var t = Object.keys(e);
     if (Object.getOwnPropertySymbols) {
-      var symbols = Object.getOwnPropertySymbols(object);
-      enumerableOnly && (symbols = symbols.filter(function (sym) {
-        return Object.getOwnPropertyDescriptor(object, sym).enumerable;
-      })), keys.push.apply(keys, symbols);
+      var o = Object.getOwnPropertySymbols(e);
+      r && (o = o.filter(function (r) {
+        return Object.getOwnPropertyDescriptor(e, r).enumerable;
+      })), t.push.apply(t, o);
     }
-    return keys;
+    return t;
   }
-  function _objectSpread2(target) {
-    for (var i = 1; i < arguments.length; i++) {
-      var source = null != arguments[i] ? arguments[i] : {};
-      i % 2 ? ownKeys(Object(source), !0).forEach(function (key) {
-        _defineProperty(target, key, source[key]);
-      }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(target, Object.getOwnPropertyDescriptors(source)) : ownKeys(Object(source)).forEach(function (key) {
-        Object.defineProperty(target, key, Object.getOwnPropertyDescriptor(source, key));
+  function _objectSpread2(e) {
+    for (var r = 1; r < arguments.length; r++) {
+      var t = null != arguments[r] ? arguments[r] : {};
+      r % 2 ? ownKeys(Object(t), !0).forEach(function (r) {
+        _defineProperty(e, r, t[r]);
+      }) : Object.getOwnPropertyDescriptors ? Object.defineProperties(e, Object.getOwnPropertyDescriptors(t)) : ownKeys(Object(t)).forEach(function (r) {
+        Object.defineProperty(e, r, Object.getOwnPropertyDescriptor(t, r));
       });
     }
-    return target;
+    return e;
   }
-  function _typeof(obj) {
+  function _typeof(o) {
     "@babel/helpers - typeof";
 
-    return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (obj) {
-      return typeof obj;
-    } : function (obj) {
-      return obj && "function" == typeof Symbol && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj;
-    }, _typeof(obj);
+    return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) {
+      return typeof o;
+    } : function (o) {
+      return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o;
+    }, _typeof(o);
   }
   function _defineProperty(obj, key, value) {
     key = _toPropertyKey(key);
@@ -168,8 +168,10 @@
   /**
    * get touch event and current event
    * @param {Event|TouchEvent} evt
+   * @param {number|null} lockedX
+   * @param {number|null} lockedY
    */
-  function getEvent(evt) {
+  function getEvent(evt, lockedX, lockedY) {
     var event = evt;
     var touch = evt.touches && evt.touches[0] || evt.changedTouches && evt.changedTouches[0];
     var target = touch ? document.elementFromPoint(touch.clientX, touch.clientY) : evt.target;
@@ -180,6 +182,12 @@
       event.pageY = touch.pageY;
       event.screenX = touch.screenX;
       event.screenY = touch.screenY;
+    }
+    if (lockedX) {
+      target = document.elementFromPoint(lockedX, event.clientY);
+    }
+    if (lockedY) {
+      target = document.elementFromPoint(event.clientX, lockedY);
     }
     return {
       touch: touch,
@@ -823,6 +831,10 @@
     x: 0,
     y: 0
   };
+  var initialDragPosition = {
+    x: null,
+    y: null
+  };
   var _prepareGroup = function _prepareGroup(options) {
     var group = {};
     var originalGroup = options.group;
@@ -921,7 +933,9 @@
       fallbackOnBody: false,
       stopPropagation: false,
       supportTouch: 'ontouchstart' in window,
-      emptyInsertThreshold: 5
+      emptyInsertThreshold: 5,
+      // x or y
+      lockAxis: null
     };
 
     // Set default options
@@ -1007,6 +1021,8 @@
 
       // No dragging is allowed when there is no dragging element
       if (!dragEl || dragEl.animated) return;
+      initialDragPosition.x = event.clientX;
+      initialDragPosition.y = event.clientY;
       cloneEl = dragEl.cloneNode(true);
       this._prepareStart(touch, event);
     },
@@ -1112,13 +1128,21 @@
     _nearestSortable: function _nearestSortable( /** Event|TouchEvent */evt) {
       this._preventEvent(evt);
       if (!downEvent || !dragEl || !_positionChanged(evt)) return;
-      var _getEvent2 = getEvent(evt),
+      var isXAxisLocked = this.options.lockAxis === 'x';
+      var initialYPosition = isXAxisLocked ? initialDragPosition.y : null;
+      var isYAxisLocked = this.options.lockAxis === 'y';
+      var initialXPosition = isYAxisLocked ? initialDragPosition.x : null;
+      var _getEvent2 = getEvent(evt, initialXPosition, initialYPosition),
         event = _getEvent2.event,
         target = _getEvent2.target;
-      var nearest = _detectNearestSortable(event.clientX, event.clientY);
+      var yMoveCoord = isXAxisLocked ? initialYPosition : event.clientY;
+      var yDropCoord = isXAxisLocked ? initialYPosition : downEvent.clientY;
+      var xMoveCoord = isYAxisLocked ? initialXPosition : event.clientX;
+      var xDropCoord = isYAxisLocked ? initialXPosition : downEvent.clientX;
+      var nearest = _detectNearestSortable(xMoveCoord, yMoveCoord);
       this._onTrulyStarted();
       moveEvent = event;
-      helper.move(event.clientX - downEvent.clientX, event.clientY - downEvent.clientY);
+      helper.move(xMoveCoord - xDropCoord, yMoveCoord - yDropCoord);
       this._autoScroll(target);
       if (nearest) {
         nearest[expando]._onMove(event, target);
