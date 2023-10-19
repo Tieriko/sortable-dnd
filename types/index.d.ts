@@ -190,6 +190,16 @@ export type Options = {
    * The callback function when element is unselected.
    */
   onDeselect?: (params: Select) => void;
+
+  /**
+   * Axis on which dragging will be locked
+   */
+  lockAxis?: 'x' | 'y'
+
+  /**
+   * Selector for the container in which dragging will be locked, by default it's document body
+   */
+  constraintContainerSelector?: String
 };
 
 declare class Sortable {
