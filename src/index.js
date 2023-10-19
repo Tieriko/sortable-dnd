@@ -176,6 +176,8 @@ function Sortable(el, options) {
 
     // x or y
     lockAxis: null,
+
+    constraintContainerSelector: null,
   };
 
   // Set default options
