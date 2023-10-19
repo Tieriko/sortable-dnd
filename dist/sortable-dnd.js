@@ -1,5 +1,5 @@
 /*!
- * sortable-dnd v0.5.4
+ * sortable-dnd v0.6.0
  * open source under the MIT license
  * https://github.com/mfuu/sortable-dnd#readme
  */
@@ -754,6 +754,12 @@
       x: 0,
       y: 0
     };
+    this.maximumDeltas = {
+      left: 0,
+      right: 0,
+      top: 0,
+      bottom: 0
+    };
   }
   Helper.prototype = {
     get node() {
@@ -768,17 +774,77 @@
         x: 0,
         y: 0
       };
+      this.maximumDeltas = {
+        left: 0,
+        right: 0,
+        top: 0,
+        bottom: 0
+      };
+    },
+    getRestrictedByContainerDeltas: function getRestrictedByContainerDeltas(x, y) {
+      var getResultDelta = function getResultDelta(delta, maximumDelta) {
+        return Math.min(Math.abs(delta), maximumDelta);
+      };
+      var xRestricted = x;
+      var yRestricted = y;
+      if (x < 0) {
+        xRestricted = -1 * getResultDelta(x, this.maximumDeltas.left);
+      }
+      if (x >= 0) {
+        xRestricted = getResultDelta(x, this.maximumDeltas.right);
+      }
+      if (y < 0) {
+        yRestricted = -1 * getResultDelta(y, this.maximumDeltas.top);
+      }
+      if (y >= 0) {
+        yRestricted = getResultDelta(y, this.maximumDeltas.bottom);
+      }
+      return {
+        x: xRestricted,
+        y: yRestricted
+      };
     },
     move: function move(x, y) {
       if (!this.helper) return;
-      setTransform(this.helper, "translate3d(".concat(x, "px, ").concat(y, "px, 0)"));
+      var restrictedCoords = this.getRestrictedByContainerDeltas(x, y);
+      setTransform(this.helper, "translate3d(".concat(restrictedCoords.x, "px, ").concat(restrictedCoords.y, "px, 0)"));
+    },
+    getCoordsAtCorners: function getCoordsAtCorners(element) {
+      var _element$getBoundingC = element.getBoundingClientRect(),
+        top = _element$getBoundingC.top,
+        left = _element$getBoundingC.left,
+        width = _element$getBoundingC.width,
+        height = _element$getBoundingC.height;
+      return {
+        leftTop: {
+          x: Math.round(left),
+          y: Math.round(top)
+        },
+        rightBottom: {
+          x: Math.round(left + width),
+          y: Math.round(top + height)
+        }
+      };
+    },
+    getMaximumDeltas: function getMaximumDeltas(target, container) {
+      var targetCoords = this.getCoordsAtCorners(target);
+      var containerCoords = this.getCoordsAtCorners(container);
+      return {
+        left: Math.abs(containerCoords.leftTop.x - targetCoords.leftTop.x),
+        right: Math.abs(containerCoords.rightBottom.x - targetCoords.rightBottom.x),
+        top: Math.abs(containerCoords.leftTop.y - targetCoords.leftTop.y),
+        bottom: Math.abs(containerCoords.rightBottom.y - targetCoords.rightBottom.y)
+      };
     },
     init: function init(rect, element, container, options) {
       if (this.helper) return;
       var fallbackOnBody = options.fallbackOnBody,
         ghostClass = options.ghostClass,
-        ghostStyle = options.ghostStyle;
+        ghostStyle = options.ghostStyle,
+        constraintContainerSelector = options.constraintContainerSelector;
       var helperContainer = fallbackOnBody ? document.body : container;
+      var constraintContainer = constraintContainerSelector ? document.querySelector(constraintContainerSelector) : document.body;
+      this.maximumDeltas = this.getMaximumDeltas(element, constraintContainer);
       this.helper = element.cloneNode(true);
       toggleClass(this.helper, ghostClass, true);
       var helperStyle = _objectSpread2({
@@ -935,7 +1001,8 @@
       supportTouch: 'ontouchstart' in window,
       emptyInsertThreshold: 5,
       // x or y
-      lockAxis: null
+      lockAxis: null,
+      constraintContainerSelector: null
     };
 
     // Set default options

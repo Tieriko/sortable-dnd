@@ -3,6 +3,12 @@ import { css, toggleClass, setTransform, setTransition } from './utils';
 function Helper() {
   this.helper = null;
   this.distance = { x: 0, y: 0 };
+  this.maximumDeltas = {
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+  };
 }
 
 Helper.prototype = {
@@ -16,18 +22,83 @@ Helper.prototype = {
     }
     this.helper = null;
     this.distance = { x: 0, y: 0 };
+    this.maximumDeltas = {
+      left: 0,
+      right: 0,
+      top: 0,
+      bottom: 0,
+    };
+  },
+
+  getRestrictedByContainerDeltas(x, y) {
+    const getResultDelta = (delta, maximumDelta) => {
+      return Math.min(Math.abs(delta), maximumDelta);
+    };
+
+    let xRestricted = x;
+    let yRestricted = y;
+    if (x < 0) {
+      xRestricted = -1 * getResultDelta(x, this.maximumDeltas.left);
+    }
+    if (x >= 0) {
+      xRestricted = getResultDelta(x, this.maximumDeltas.right);
+    }
+
+    if (y < 0) {
+      yRestricted = -1 * getResultDelta(y, this.maximumDeltas.top);
+    }
+    if (y >= 0) {
+      yRestricted = getResultDelta(y, this.maximumDeltas.bottom);
+    }
+
+    return {
+      x: xRestricted,
+      y: yRestricted,
+    };
   },
 
   move(x, y) {
     if (!this.helper) return;
-    setTransform(this.helper, `translate3d(${x}px, ${y}px, 0)`);
+
+    const restrictedCoords = this.getRestrictedByContainerDeltas(x, y);
+    setTransform(this.helper, `translate3d(${restrictedCoords.x}px, ${restrictedCoords.y}px, 0)`);
+  },
+
+  getCoordsAtCorners(element) {
+    const { top, left, width, height } = element.getBoundingClientRect();
+    return {
+      leftTop: {
+        x: Math.round(left),
+        y: Math.round(top),
+      },
+      rightBottom: {
+        x: Math.round(left + width),
+        y: Math.round(top + height),
+      },
+    };
+  },
+
+  getMaximumDeltas(target, container) {
+    const targetCoords = this.getCoordsAtCorners(target);
+    const containerCoords = this.getCoordsAtCorners(container);
+    return {
+      left: Math.abs(containerCoords.leftTop.x - targetCoords.leftTop.x),
+      right: Math.abs(containerCoords.rightBottom.x - targetCoords.rightBottom.x),
+      top: Math.abs(containerCoords.leftTop.y - targetCoords.leftTop.y),
+      bottom: Math.abs(containerCoords.rightBottom.y - targetCoords.rightBottom.y),
+    };
   },
 
   init(rect, element, container, options) {
     if (this.helper) return;
 
-    const { fallbackOnBody, ghostClass, ghostStyle } = options;
+    const { fallbackOnBody, ghostClass, ghostStyle, constraintContainerSelector } = options;
     const helperContainer = fallbackOnBody ? document.body : container;
+
+    const constraintContainer = constraintContainerSelector
+      ? document.querySelector(constraintContainerSelector)
+      : document.body;
+    this.maximumDeltas = this.getMaximumDeltas(element, constraintContainer);
 
     this.helper = element.cloneNode(true);
     toggleClass(this.helper, ghostClass, true);
